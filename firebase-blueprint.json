@@ -1,0 +1,173 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Profile data for the teacher",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "The user's email"
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "email",
+        "createdAt"
+      ]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "A student whose behaviors are tracked",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "gradeLevel": {
+          "type": "string"
+        },
+        "homeroomTeacher": {
+          "type": "string"
+        },
+        "groups": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "behaviors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "schedule": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "teacherEmails": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "ownerId": {
+          "type": "string"
+        },
+        "userRoles": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "enum": ["edit", "view"] }
+        },
+        "authorizedUsers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "archived"]
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "behaviors",
+        "schedule",
+        "teacherEmails",
+        "ownerId",
+        "authorizedUsers",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PersonalGroup": {
+      "title": "PersonalGroup",
+      "description": "Teacher-specific grouping of students",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "studentIds": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "ownerId", "studentIds", "createdAt", "updatedAt"]
+    },
+    "DailyLog": {
+      "title": "DailyLog",
+      "description": "A daily tracking log for a student",
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "description": "YYYY-MM-DD"
+        },
+        "attendance": {
+          "type": "string",
+          "description": "present, absent, school_closed"
+        },
+        "periodData": {
+          "type": "string",
+          "description": "JSON string of period scoring data to avoid deeply nested rule checking"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "date",
+        "attendance",
+        "periodData",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DailyNote": {
+      "title": "DailyNote",
+      "description": "General daily observation notes for a student",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "date": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["text", "date", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "User profiles"
+    },
+    "students/{studentId}": {
+      "schema": {
+        "$ref": "#/entities/Student"
+      },
+      "description": "Students accessible to teachers"
+    },
+    "students/{studentId}/logs/{logId}": {
+      "schema": {
+        "$ref": "#/entities/DailyLog"
+      },
+      "description": "Daily logs for a student"
+    },
+    "students/{studentId}/dailyNotes/{noteId}": {
+      "schema": {
+        "$ref": "#/entities/DailyNote"
+      },
+      "description": "General daily notes for a student, keyed by date string"
+    },
+    "personalGroups/{groupId}": {
+      "schema": {
+        "$ref": "#/entities/PersonalGroup"
+      },
+      "description": "Teacher-specific grouping of students"
+    }
+  }
+}

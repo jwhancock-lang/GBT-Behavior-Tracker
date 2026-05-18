@@ -1,0 +1,87 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitives
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function hasAllKeys(data, keys) { return data.keys().hasAll(keys) && data.keys().size() == keys.size(); }
+
+    // Validation Helpers
+    function isValidUserProfile(data) {
+      return
+        data.email is string && data.email.size() <= 100 &&
+        data.createdAt is string && data.createdAt.size() <= 50;
+    }
+
+    function isValidStudent(data) {
+      return
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.behaviors is list && data.behaviors.size() <= 20 &&
+        (data.behaviors.size() == 0 || (data.behaviors[0] is string && data.behaviors[0].size() <= 150)) &&
+        data.schedule is list && data.schedule.size() <= 30 &&
+        (data.schedule.size() == 0 || (data.schedule[0] is string && data.schedule[0].size() <= 100)) &&
+        data.teacherEmails is list && data.teacherEmails.size() <= 50 &&
+        (data.teacherEmails.size() == 0 || (data.teacherEmails[0] is string && data.teacherEmails[0].size() <= 100)) &&
+        data.createdAt is string && data.createdAt.size() <= 50 &&
+        data.updatedAt is string && data.updatedAt.size() <= 50;
+    }
+
+    function isValidDailyLog(data) {
+      return
+        data.date is string && data.date.size() == 10 &&
+        data.attendance is string && data.attendance.size() <= 20 &&
+        data.periodData is string && data.periodData.size() <= 10000 &&
+        data.createdAt is string && data.createdAt.size() <= 50 &&
+        data.updatedAt is string && data.updatedAt.size() <= 50;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() && request.auth.uid == userId &&
+                       isValidId(userId) &&
+                       hasAllKeys(incoming(), ['email', 'createdAt']) &&
+                       isValidUserProfile(incoming());
+      allow update: if isSignedIn() && request.auth.uid == userId &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['email']) &&
+                       incoming().createdAt == existing().createdAt;
+      allow delete: if false;
+    }
+
+    match /students/{studentId} {
+      allow read: if isSignedIn() && request.auth.token.email in existing().teacherEmails;
+      allow list: if isSignedIn() && request.auth.token.email in existing().teacherEmails;
+      allow create: if isSignedIn() && request.auth.token.email in incoming().teacherEmails &&
+                       isValidId(studentId) &&
+                       hasAllKeys(incoming(), ['name', 'behaviors', 'schedule', 'teacherEmails', 'createdAt', 'updatedAt']) &&
+                       isValidStudent(incoming());
+      allow update: if isSignedIn() && request.auth.token.email in existing().teacherEmails &&
+                       isValidStudent(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'behaviors', 'schedule', 'teacherEmails', 'updatedAt']) &&
+                       incoming().createdAt == existing().createdAt;
+      allow delete: if isSignedIn() && request.auth.token.email in existing().teacherEmails;
+
+      match /logs/{logId} {
+        allow read: if isSignedIn() && request.auth.token.email in get(/databases/$(database)/documents/students/$(studentId)).data.teacherEmails;
+        allow list: if isSignedIn() && request.auth.token.email in get(/databases/$(database)/documents/students/$(studentId)).data.teacherEmails;
+        allow create: if isSignedIn() && request.auth.token.email in get(/databases/$(database)/documents/students/$(studentId)).data.teacherEmails &&
+                         isValidId(logId) &&
+                         hasAllKeys(incoming(), ['date', 'attendance', 'periodData', 'createdAt', 'updatedAt']) &&
+                         isValidDailyLog(incoming());
+        allow update: if isSignedIn() && request.auth.token.email in get(/databases/$(database)/documents/students/$(studentId)).data.teacherEmails &&
+                         isValidDailyLog(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['attendance', 'periodData', 'updatedAt']) &&
+                         incoming().date == existing().date &&
+                         incoming().createdAt == existing().createdAt;
+        allow delete: if isSignedIn() && request.auth.token.email in get(/databases/$(database)/documents/students/$(studentId)).data.teacherEmails;
+      }
+    }
+  }
+}
