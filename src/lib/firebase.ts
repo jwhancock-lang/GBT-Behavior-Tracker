@@ -1,11 +1,36 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import firebaseConfig from "../../firebase-applet-config.json";
+import devConfig from "../../firebase-applet-config.json";
 
-export const app = initializeApp(firebaseConfig);
+// ==========================================
+// PRODUCTION CONFIGURATION (gbt-behavior-tracker)
+// ==========================================
+// TODO: Replace these placeholders with your actual Web App credentials
+// which you can find in your Firebase Console under Settings > Project Settings > General > Your apps.
+const prodConfig = {
+  apiKey: "AIzaSy..." , // Replace with your production API key
+  authDomain: "gbt-behavior-tracker.firebaseapp.com",
+  projectId: "gbt-behavior-tracker",
+  storageBucket: "gbt-behavior-tracker.firebasestorage.app",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID", // Replace with your production Messaging Sender ID
+  appId: "YOUR_APP_ID", // Replace with your production App ID
+  firestoreDatabaseId: "(default)"
+};
+
+// Auto-detect environment based on the domain name in the browser
+const isProduction =
+  window.location.hostname.includes("gbt-behavior-tracker") ||
+  window.location.hostname.endsWith(".web.app") ||
+  window.location.hostname.endsWith(".firebaseapp.com");
+
+const currentConfig = isProduction ? prodConfig : devConfig;
+
+export const app = initializeApp(currentConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = currentConfig.firestoreDatabaseId && currentConfig.firestoreDatabaseId !== "(default)"
+  ? getFirestore(app, currentConfig.firestoreDatabaseId)
+  : getFirestore(app);
 
 export const signInWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
