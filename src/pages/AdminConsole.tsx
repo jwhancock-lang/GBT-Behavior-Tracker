@@ -3,7 +3,7 @@ import { useAdminStats, StudentStats, useSystemAdmins } from "../hooks/useDataba
 import { usePermissions } from "../hooks/usePermissions";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Search, ArrowUpDown, TrendingDown, Clock, User, GraduationCap, School, AlertTriangle, CheckCircle2, History, Shield, ShieldPlus, Trash2, Mail, Plus, Archive, Settings2, Users } from "lucide-react";
+import { Search, ArrowUpDown, TrendingDown, Clock, User, GraduationCap, School, AlertTriangle, CheckCircle2, History, Shield, ShieldPlus, Trash2, Mail, Plus, Archive, Settings2, Users, BarChart3 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Link } from "react-router-dom";
 import { cn } from "../lib/utils";
@@ -299,38 +299,47 @@ export default function AdminConsole() {
           <p className="text-zinc-500 text-sm">Bird's-eye view of student performance and compliance.</p>
         </div>
         
-        <div className="flex bg-zinc-100 p-1 rounded-lg border border-zinc-200">
+        <div className="flex bg-zinc-100 p-1 rounded-lg border border-zinc-200 min-w-0 max-w-full overflow-x-auto no-scrollbar whitespace-nowrap">
           <Button 
             variant={activeTab === "overview" ? "secondary" : "ghost"} 
             size="sm" 
             onClick={() => setActiveTab("overview")}
-            className="text-[10px] font-black uppercase tracking-widest h-8"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-widest h-8 px-2.5 sm:px-4"
+            title="Performance Overview"
           >
-            Performance Overview
+            <BarChart3 className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Overview</span>
           </Button>
           <Button 
             variant={activeTab === "compliance" ? "secondary" : "ghost"} 
             size="sm" 
             onClick={() => setActiveTab("compliance")}
-            className="text-[10px] font-black uppercase tracking-widest h-8"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-widest h-8 px-2.5 sm:px-4"
+            title="Data Compliance"
           >
-            Data Compliance {summary.missingTotal > 0 && <span className="ml-1.5 px-1.5 py-0.5 bg-red-500 text-white text-[9px] rounded-full">{summary.missingTotal}</span>}
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Compliance</span>
+            {summary.missingTotal > 0 && <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-[9px] rounded-full shrink-0">{summary.missingTotal}</span>}
           </Button>
           <Button 
             variant={activeTab === "roster" ? "secondary" : "ghost"} 
             size="sm" 
             onClick={() => setActiveTab("roster")}
-            className="text-[10px] font-black uppercase tracking-widest h-8"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-widest h-8 px-2.5 sm:px-4"
+            title="Roster Management"
           >
-            Roster Management
+            <Users className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Roster</span>
           </Button>
           <Button 
             variant={activeTab === "system" ? "secondary" : "ghost"} 
             size="sm" 
             onClick={() => setActiveTab("system")}
-            className="text-[10px] font-black uppercase tracking-widest h-8"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-widest h-8 px-2.5 sm:px-4"
+            title="System Access"
           >
-            System Access
+            <Shield className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">System</span>
           </Button>
         </div>
       </div>

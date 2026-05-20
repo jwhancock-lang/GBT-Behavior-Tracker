@@ -53,7 +53,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900">
+    <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900 overflow-x-hidden">
       <header className="bg-black border-b border-zinc-800 sticky top-0 z-10 shadow-sm print:hidden">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-6">
