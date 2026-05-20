@@ -7,6 +7,7 @@ import RosterLog from "./pages/RosterLog";
 import AdminConsole from "./pages/AdminConsole";
 import Dashboard from "./pages/Dashboard";
 import { BarChart3, LayoutDashboard, ClipboardList, ShieldAlert } from "lucide-react";
+import tigerLogo from "./assets/images/tiger_mascot_final_v2_1779214043375.png";
 
 export default function App() {
   const { user, loading, signIn, signOut, error } = useAuth();
@@ -26,7 +27,7 @@ export default function App() {
         <div className="max-w-md w-full space-y-8 text-center">
           <div className="space-y-2 flex flex-col items-center">
             <div className="mb-8">
-              <img src="/src/assets/images/tiger_mascot_final_v2_1779214043375.png" alt="Tiger Logo" className="h-40 w-40 object-contain" referrerPolicy="no-referrer" />
+              <img src={tigerLogo} alt="Tiger Logo" className="h-40 w-40 object-contain" referrerPolicy="no-referrer" />
             </div>
             <h1 className="text-3xl font-bold tracking-tight text-zinc-950 uppercase">GBT Behavior Tracker</h1>
           </div>
@@ -56,7 +57,7 @@ export default function App() {
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-6">
             <Link to="/" className="font-bold text-lg text-white hover:text-orange-400 transition-colors flex items-center space-x-3 text-nowrap group">
-              <img src="/src/assets/images/tiger_mascot_final_v2_1779214043375.png" alt="Tiger Logo" className="h-10 w-10 object-contain group-hover:scale-110 transition-transform" referrerPolicy="no-referrer" />
+              <img src={tigerLogo} alt="Tiger Logo" className="h-10 w-10 object-contain group-hover:scale-110 transition-transform" referrerPolicy="no-referrer" />
               <span className="hidden sm:inline-block tracking-tight uppercase">GBT Behavior Tracker</span>
             </Link>
             <div className="flex items-center space-x-1 sm:space-x-2">
