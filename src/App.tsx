@@ -7,6 +7,7 @@ import RosterLog from "./pages/RosterLog";
 import AdminConsole from "./pages/AdminConsole";
 import Dashboard from "./pages/Dashboard";
 import { BarChart3, LayoutDashboard, ClipboardList, ShieldAlert } from "lucide-react";
+// @ts-ignore
 import tigerLogo from "./assets/images/tiger_mascot_final_v2_1779214043375.png";
 
 export default function App() {
