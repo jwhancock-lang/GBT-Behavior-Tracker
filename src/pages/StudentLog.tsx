@@ -552,36 +552,33 @@ export default function StudentLog() {
       <div className="flex border-b border-slate-100 mb-6 bg-slate-50/50 rounded-lg p-1 print:hidden">
         <button
           onClick={() => setView("log")}
-          title="Tracking"
           className={cn(
-            "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 sm:px-6 rounded-md font-black text-xs uppercase tracking-wider sm:tracking-widest transition-all",
+            "flex-1 flex items-center justify-center gap-2 px-6 py-2 rounded-md font-black text-xs uppercase tracking-widest transition-all",
             view === "log" ? "bg-white text-orange-600 shadow-sm ring-1 ring-slate-200" : "text-slate-400 hover:text-slate-600 hover:bg-white/50"
           )}
         >
-          <CheckSquare className="h-4 w-4 shrink-0" />
-          <span className="hidden sm:inline">Tracking</span>
+          <CheckSquare className="h-4 w-4" />
+          <span>Tracking</span>
         </button>
         <button
           onClick={() => setView("kid")}
-          title="Student View"
           className={cn(
-            "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 sm:px-6 rounded-md font-black text-xs uppercase tracking-wider sm:tracking-widest transition-all",
+            "flex-1 flex items-center justify-center gap-2 px-6 py-2 rounded-md font-black text-xs uppercase tracking-widest transition-all",
             view === "kid" ? "bg-white text-orange-600 shadow-sm ring-1 ring-slate-200" : "text-slate-400 hover:text-slate-600 hover:bg-white/50"
           )}
         >
-          <Star className="h-4 w-4 shrink-0" />
-          <span className="hidden sm:inline">Student View</span>
+          <Star className="h-4 w-4" />
+          <span>Student View</span>
         </button>
         <button
           onClick={() => setView("report")}
-          title="Analytics"
           className={cn(
-            "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 sm:px-6 rounded-md font-black text-xs uppercase tracking-wider sm:tracking-widest transition-all",
+            "flex-1 flex items-center justify-center gap-2 px-6 py-2 rounded-md font-black text-xs uppercase tracking-widest transition-all",
             view === "report" ? "bg-white text-orange-600 shadow-sm ring-1 ring-slate-200" : "text-slate-400 hover:text-slate-600 hover:bg-white/50"
           )}
         >
-          <BarChart2 className="h-4 w-4 shrink-0" />
-          <span className="hidden sm:inline">Analytics</span>
+          <BarChart2 className="h-4 w-4" />
+          <span>Analytics</span>
         </button>
       </div>
 
@@ -646,7 +643,7 @@ export default function StudentLog() {
                     </div>
                   </Card>
 
-                  <Card className="shadow-none border-slate-200 overflow-hidden hidden lg:block">
+                  <Card className="shadow-none border-slate-200 overflow-hidden">
                     <div className="bg-slate-900 text-white p-4 text-center">
                       <div className="text-[10px] uppercase font-bold tracking-[0.2em] opacity-60 mb-1">Today's Performance</div>
                       <div className="text-4xl font-black">{dailyPercentage !== null ? `${dailyPercentage}%` : "--"}</div>
@@ -658,7 +655,7 @@ export default function StudentLog() {
                   </Card>
             
                   {chartData.length > 0 && (
-                    <Card className="shadow-none border-slate-200 hidden lg:block">
+                    <Card className="shadow-none border-slate-200">
                       <div className="p-3 border-b border-slate-100 flex items-center justify-between">
                         <h4 className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Score History</h4>
                         <select 
@@ -873,53 +870,6 @@ export default function StudentLog() {
                         })}
                       </div>
                   )}
-
-                  {/* Mobile-only performance and score history views placed below the daily schedule */}
-                  <div className="block lg:hidden space-y-4 pt-4 border-t border-slate-100/50">
-                    <Card className="shadow-none border-slate-200 overflow-hidden">
-                      <div className="bg-slate-900 text-white p-4 text-center">
-                        <div className="text-[10px] uppercase font-bold tracking-[0.2em] opacity-60 mb-1">Today's Performance</div>
-                        <div className="text-4xl font-black">{dailyPercentage !== null ? `${dailyPercentage}%` : "--"}</div>
-                      </div>
-                      <div className="bg-white p-3 flex justify-between items-center text-[11px] font-black uppercase text-slate-500">
-                        <span>Points Earned</span>
-                        <span className="text-slate-900">{totalEarned} / {totalPossible}</span>
-                      </div>
-                    </Card>
-
-                    {chartData.length > 0 && (
-                      <Card className="shadow-none border-slate-200">
-                        <div className="p-3 border-b border-slate-100 flex items-center justify-between">
-                          <h4 className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Score History</h4>
-                          <select 
-                            className="text-[10px] font-bold bg-slate-50 border-none rounded px-2 py-1 text-slate-600 focus:outline-none"
-                            value={trendFilter}
-                            onChange={e => setTrendFilter(e.target.value as "week"| "month" | "year")}
-                          >
-                            <option value="week">WEEK</option>
-                            <option value="month">MONTH</option>
-                            <option value="year">YEAR</option>
-                          </select>
-                        </div>
-                        <CardContent className="p-4">
-                          <div className="h-24 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <LineChart data={chartData}>
-                                <Line 
-                                  type="monotone" 
-                                  dataKey="score" 
-                                  stroke="#ea580c" 
-                                  strokeWidth={3}
-                                  dot={{ r: 4, fill: '#ea580c', stroke: '#fff', strokeWidth: 2 }}
-                                  activeDot={{ r: 6, fill: '#ea580c', stroke: '#fff', strokeWidth: 2 }}
-                                />
-                              </LineChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
                 </div>
               </div>
             </div>
