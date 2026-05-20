@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Student, DailyLog, PeriodScore } from '../types';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
-import { format, parse, getMonth, getYear, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWeekend, startOfWeek } from 'date-fns';
+import { format, parse, getMonth, getYear, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWeekend, startOfWeek, subDays, isAfter } from 'date-fns';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { WeeklyDigest } from './WeeklyDigest';
 import { Button } from './ui/button';
@@ -51,7 +51,7 @@ const HeatmapVisual = ({ title, data }: { title: string, data: { name: string, s
               <div key={idx} className="flex-1 flex flex-col justify-end pointer-events-none min-w-[45px] print:min-w-0 h-full group">
                 <div 
                   style={getStyleForScore(item.score, minScore)}
-                  className="w-full rounded-md flex items-center justify-center font-black text-[10px] sm:text-xs print:text-[8px] shadow-sm transition-all border-b-4 border-black/10"
+                  className="w-full rounded-md flex items-center justify-center font-black text-[10px] sm:text-xs print:text-[8px] shadow-sm border-b-4 border-black/10"
                   title={`${item.name}: ${item.score}%`}
                 >
                   <span className="drop-shadow-md text-white">{item.score}%</span>
@@ -78,6 +78,7 @@ interface StudentReportProps {
 
 export function StudentReport({ student, logs, allDailyNotes = [] }: StudentReportProps) {
   const [tab, setTab] = useState<"digest" | "trends" | "insights">("digest");
+  const [trendRange, setTrendRange] = useState<"day" | "week" | "month">("month");
 
   // Aggregate data for robust reporting
   const { dailyData, weeklyData, monthlyData, periodAverages, dayOfWeekAverages, behaviorAverages, insights } = useMemo(() => {
@@ -104,7 +105,7 @@ export function StudentReport({ student, logs, allDailyNotes = [] }: StudentRepo
     });
 
     logs.forEach(log => {
-      if (log.attendance === "absent" || log.attendance === "school_closed") return;
+      if (log.attendance === "absent" || log.attendance === "school_closed" || log.attendance === "teacher_absent") return;
       try {
         const data: Record<string, PeriodScore> = JSON.parse(log.periodData);
         
@@ -170,7 +171,7 @@ export function StudentReport({ student, logs, allDailyNotes = [] }: StudentRepo
     });
 
     const dailyDataRaw = logs
-      .filter(log => log.attendance !== "absent" && log.attendance !== "school_closed")
+      .filter(log => log.attendance !== "absent" && log.attendance !== "school_closed" && log.attendance !== "teacher_absent")
       .sort((a, b) => a.date.localeCompare(b.date))
       .map(log => {
         try {
@@ -229,7 +230,7 @@ export function StudentReport({ student, logs, allDailyNotes = [] }: StudentRepo
       }));
     };
 
-    const dailyData = addTrendLine(dailyDataRaw.slice(-14));
+    const dailyData = addTrendLine(dailyDataRaw);
     const weeklyData = addTrendLine(weeklyDataRaw);
     const monthlyData = addTrendLine(monthlyDataRaw);
 
@@ -429,86 +430,77 @@ export function StudentReport({ student, logs, allDailyNotes = [] }: StudentRepo
       
         {tab === "trends" && (
           <div className="space-y-4 animate-in fade-in duration-500">
-            {/* Top Row: Trends */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="shadow-none border-slate-200 overflow-hidden">
-                <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                  <h4 className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Daily Trend</h4>
-                  <TrendingUp className="h-3.5 w-3.5 text-slate-300" />
-                </div>
-                <CardContent className="h-[180px] px-2 py-4">
-                  {dailyData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={dailyData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" hide />
-                        <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 'bold', fill: '#94a3b8' }} tickFormatter={(val) => `${val}%`} />
-                        <Tooltip 
-                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }}
-                          formatter={(val: number) => [`${Math.round(val)}%`, 'Score']} 
-                        />
-                        <Line type="monotone" dataKey="score" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#fff', strokeWidth: 2, stroke: '#10b981' }} activeDot={{ r: 6 }} isAnimationActive={false} />
-                        <Line type="linear" dataKey="trend" stroke="#cbd5e1" strokeWidth={1} strokeDasharray="4 4" dot={false} activeDot={false} isAnimationActive={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">No Data</div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-none border-slate-200 overflow-hidden">
-                <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                  <h4 className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Weekly Trend</h4>
-                  <TrendingUp className="h-3.5 w-3.5 text-slate-300" />
-                </div>
-                <CardContent className="h-[180px] px-2 py-4">
-                  {weeklyData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={weeklyData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" hide />
-                        <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 'bold', fill: '#94a3b8' }} tickFormatter={(val) => `${val}%`} />
-                        <Tooltip 
-                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }}
-                          formatter={(val: number) => [`${Math.round(val)}%`, 'Score']} 
-                        />
-                        <Line type="monotone" dataKey="score" stroke="#ea580c" strokeWidth={3} dot={{ r: 4, fill: '#fff', strokeWidth: 2, stroke: '#ea580c' }} activeDot={{ r: 6 }} isAnimationActive={false} />
-                        <Line type="linear" dataKey="trend" stroke="#cbd5e1" strokeWidth={1} strokeDasharray="4 4" dot={false} activeDot={false} isAnimationActive={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">No Data</div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-none border-slate-200 overflow-hidden">
-                <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                  <h4 className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Monthly Trend</h4>
-                  <BarChart2 className="h-3.5 w-3.5 text-slate-300" />
-                </div>
-                <CardContent className="h-[180px] px-2 py-4">
-                  {monthlyData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={monthlyData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" hide />
-                        <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 'bold', fill: '#94a3b8' }} tickFormatter={(val) => `${val}%`} />
-                        <Tooltip 
-                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }}
-                          formatter={(val: number) => [`${Math.round(val)}%`, 'Score']} 
-                        />
-                        <Line type="monotone" dataKey="score" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#fff', strokeWidth: 2, stroke: '#3b82f6' }} activeDot={{ r: 6 }} isAnimationActive={false} />
-                        <Line type="linear" dataKey="trend" stroke="#cbd5e1" strokeWidth={1} strokeDasharray="4 4" dot={false} activeDot={false} isAnimationActive={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">No Data</div>
-                  )}
-                </CardContent>
-              </Card>
+            {/* Trend Selector Bar */}
+            <div className="flex items-center justify-between bg-white border border-slate-200 p-2 rounded-xl">
+              <div className="flex items-center gap-2 pl-2">
+                <TrendingUp className="h-4 w-4 text-orange-500" />
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-700">Trend Analysis</h3>
+              </div>
+              <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                {[
+                  { id: "day", label: "Day" },
+                  { id: "week", label: "Week" },
+                  { id: "month", label: "Month" }
+                ].map(r => (
+                  <button 
+                    key={r.id}
+                    onClick={() => setTrendRange(r.id as any)}
+                    className={cn(
+                      "px-4 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all",
+                      trendRange === r.id ? "bg-white text-orange-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                    )}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Top Chart: Consolidated Trend */}
+            <Card className="shadow-none border-slate-200 overflow-hidden">
+              <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <h4 className="text-[10px] uppercase font-black text-slate-400 tracking-widest">
+                  {trendRange === 'month' ? 'Monthly' : trendRange === 'week' ? 'Weekly' : 'Daily'} Performance Trend (Full Year)
+                </h4>
+                {trendRange === 'month' ? <BarChart2 className="h-3.5 w-3.5 text-slate-300" /> : <TrendingUp className="h-3.5 w-3.5 text-slate-300" />}
+              </div>
+              <CardContent className="h-[250px] px-2 py-4">
+                {(trendRange === 'month' ? monthlyData : trendRange === 'week' ? weeklyData : dailyData).length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart 
+                      data={trendRange === 'month' ? monthlyData : trendRange === 'week' ? weeklyData : dailyData} 
+                      margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fontSize: 9, fontWeight: 'bold', fill: '#94a3b8' }}
+                        interval={trendRange === 'day' ? Math.floor(dailyData.length / 10) : 0}
+                      />
+                      <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 'bold', fill: '#94a3b8' }} tickFormatter={(val) => `${val}%`} />
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }}
+                        formatter={(val: number) => [`${Math.round(val)}%`, 'Score']} 
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="score" 
+                        stroke={trendRange === 'month' ? "#3b82f6" : trendRange === 'week' ? "#ea580c" : "#10b981"} 
+                        strokeWidth={3} 
+                        dot={trendRange !== 'day'} 
+                        activeDot={{ r: 6 }} 
+                        isAnimationActive={false} 
+                      />
+                      <Line type="linear" dataKey="trend" stroke="#cbd5e1" strokeWidth={1} strokeDasharray="4 4" dot={false} activeDot={false} isAnimationActive={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">No Data found</div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Second Row: Behavior & Day of Week */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -529,6 +521,7 @@ export function StudentReport({ student, logs, allDailyNotes = [] }: StudentRepo
                           fill="#ea580c" 
                           radius={[0, 6, 6, 0]} 
                           barSize={12}
+                          isAnimationActive={false}
                           label={{ position: 'right', formatter: (val: number) => `${val}%`, fill: '#94a3b8', fontSize: 9, fontWeight: 'bold' }} 
                         />
                       </BarChart>

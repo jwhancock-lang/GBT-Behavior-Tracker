@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from "react";
 import { format, isWeekend, parseISO, isToday, subDays, addDays } from "date-fns";
-import { useStudents, useDailyLogsBulk } from "../hooks/useDatabase";
+import { useStudents, useDailyLogsBulk, useSystemAdmins } from "../hooks/useDatabase";
 import { useAuth } from "../components/AuthProvider";
 import { usePermissions } from "../hooks/usePermissions";
+import { SYSTEM_ADMINS as SYSTEM_ADMIN_EMAILS } from "../lib/constants";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Label } from "../components/ui/label";
@@ -79,6 +80,7 @@ const getNextWeekday = (d: Date) => {
 export default function RosterLog() {
   const { user } = useAuth();
   const { students, loading: studentsLoading } = useStudents();
+  const { admins: dynamicAdmins } = useSystemAdmins();
   const [currentDate, setCurrentDate] = useState<Date>(() => {
     const today = new Date();
     return isWeekend(today) ? getPrevWeekday(today) : today;
@@ -131,27 +133,30 @@ export default function RosterLog() {
   const canLogCount = useMemo(() => {
     let count = 0;
     filteredStudents.forEach(s => {
-      const isAdminOverride = s.name?.toUpperCase() === "ZANE" && userEmail === "jwhancock@asheboro.k12.nc.us";
-      const isOwner = s.ownerId === user?.uid || isAdminOverride;
-      const hasRole = s.userRoles?.[userEmail];
-      const canLog = isOwner || hasRole === 'edit' || hasRole === 'view' || (s.teacherEmails?.includes(userEmail));
+      // Manual check simulation since we can't call hooks in a loop easily, 
+      // but we should match usePermissions logic
+      const isSystemAdmin = SYSTEM_ADMIN_EMAILS.includes(userEmail) || dynamicAdmins.includes(userEmail);
+      const isCaseManager = s.userRoles?.[userEmail] === 'edit';
+      const isContributor = s.userRoles?.[userEmail] === 'view' || (s.teacherEmails?.some(e => e.toLowerCase() === userEmail));
+      
+      const canLog = isSystemAdmin || isCaseManager || isContributor;
       if (canLog) count++;
     });
     return count;
-  }, [filteredStudents, userEmail, user?.uid]);
+  }, [filteredStudents, userEmail, dynamicAdmins]);
 
   // Default all to selected when filtered students change
   React.useEffect(() => {
     const loggableIds = filteredStudents
       .filter(s => {
-        const isAdminOverride = s.name?.toUpperCase() === "ZANE" && userEmail === "jwhancock@asheboro.k12.nc.us";
-        const isOwner = s.ownerId === user?.uid || isAdminOverride;
-        const hasRole = s.userRoles?.[userEmail];
-        return isOwner || hasRole === 'edit' || hasRole === 'view' || (s.teacherEmails?.includes(userEmail));
+        const isSystemAdmin = SYSTEM_ADMIN_EMAILS.includes(userEmail) || dynamicAdmins.includes(userEmail);
+        const isCaseManager = s.userRoles?.[userEmail] === 'edit';
+        const isContributor = s.userRoles?.[userEmail] === 'view' || (s.teacherEmails?.some(e => e.toLowerCase() === userEmail));
+        return isSystemAdmin || isCaseManager || isContributor;
       })
       .map(s => s.id!);
     setSelectedStudentIds(new Set(loggableIds));
-  }, [filteredStudents, userEmail, user?.uid]);
+  }, [filteredStudents, userEmail, dynamicAdmins]);
 
   const toggleSelection = (id: string) => {
     const newSet = new Set(selectedStudentIds);
@@ -164,10 +169,10 @@ export default function RosterLog() {
     if (checked) {
       const loggableIds = filteredStudents
         .filter(s => {
-          const isAdminOverride = s.name?.toUpperCase() === "ZANE" && userEmail === "jwhancock@asheboro.k12.nc.us";
-          const isOwner = s.ownerId === user?.uid || isAdminOverride;
-          const hasRole = s.userRoles?.[userEmail];
-          return isOwner || hasRole === 'edit' || hasRole === 'view' || (s.teacherEmails?.includes(userEmail));
+          const isSystemAdmin = SYSTEM_ADMIN_EMAILS.includes(userEmail);
+          const isCaseManager = s.userRoles?.[userEmail] === 'edit';
+          const isContributor = s.userRoles?.[userEmail] === 'view' || (s.teacherEmails?.some(e => e.toLowerCase() === userEmail));
+          return isSystemAdmin || isCaseManager || isContributor;
         })
         .map(s => s.id!);
       setSelectedStudentIds(new Set(loggableIds));

@@ -42,7 +42,7 @@ export function WeeklyDigest({ student, logs, monthlyData = [], periodAverages =
     });
 
     logs.forEach(log => {
-      if (log.attendance === "absent" || log.attendance === "school_closed") return;
+      if (log.attendance === "absent" || log.attendance === "school_closed" || log.attendance === "teacher_absent") return;
       const logDate = parseISO(log.date);
       const dateKey = format(logDate, 'yyyy-MM-dd');
       

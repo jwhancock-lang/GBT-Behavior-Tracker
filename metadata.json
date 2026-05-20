@@ -1,6 +1,6 @@
 {
   "name": "GBT Behavior Tracker",
-  "description": "",
+  "description": "Comprehensive behavioral tracking system for students with multi-role collaboration and analytics.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

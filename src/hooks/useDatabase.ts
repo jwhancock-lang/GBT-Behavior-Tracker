@@ -2,10 +2,62 @@ import { useState, useEffect, useMemo } from "react";
 import { collection, doc, query, where, onSnapshot, setDoc, updateDoc, deleteDoc, orderBy, writeBatch, getDoc, or } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { useAuth } from "../components/AuthProvider";
+import { SYSTEM_ADMINS } from "../lib/constants";
 import { Student, DailyLog, PersonalGroup } from "../types";
+
+export function useSystemAdmins() {
+  const { user, loading: authLoading } = useAuth();
+  const [admins, setAdmins] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setAdmins([]);
+      setLoading(false);
+      return;
+    }
+
+    const q = query(collection(db, "system_admins"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const emails = snapshot.docs.map(doc => doc.id);
+      setAdmins(emails);
+      setLoading(false);
+    }, (err) => {
+      console.error("Failed to fetch system admins:", err);
+      // Usually fails if user is not signed in or not authorized
+      setAdmins([]);
+      setLoading(false);
+    });
+    return unsubscribe;
+  }, [user, authLoading]);
+
+  const addAdmin = async (email: string) => {
+    const cleanEmail = email.toLowerCase().trim();
+    if (!cleanEmail) return;
+    try {
+      await setDoc(doc(db, "system_admins", cleanEmail), {
+        addedAt: new Date().toISOString()
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `system_admins/${cleanEmail}`);
+    }
+  };
+
+  const removeAdmin = async (email: string) => {
+    try {
+      await deleteDoc(doc(db, "system_admins", email));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `system_admins/${email}`);
+    }
+  };
+
+  return { admins, loading, addAdmin, removeAdmin };
+}
 
 export function useStudents() {
   const { user } = useAuth();
+  const { admins } = useSystemAdmins();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -16,11 +68,20 @@ export function useStudents() {
       return;
     }
     
-    const email = user.email || user.providerData[0]?.email;
-    const q = query(
-      collection(db, `students`),
-      where("teacherEmails", "array-contains", email)
-    );
+    const email = (user.email || user.providerData[0]?.email || "").toLowerCase();
+    
+    // We need to know if they are an admin to decide which query to run.
+    // Since this hook runs early, we check the hardcoded list first, 
+    // then the dynamic list if available.
+    const isSystemAdmin = SYSTEM_ADMINS.includes(email) || admins.includes(email);
+
+    // Admins see everything, teachers see assigned
+    const q = isSystemAdmin 
+      ? query(collection(db, `students`))
+      : query(
+          collection(db, `students`),
+          where("teacherEmails", "array-contains", email)
+        );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({
@@ -39,7 +100,7 @@ export function useStudents() {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, admins]);
 
   const addStudent = async (studentData: Omit<Student, "id" | "createdAt" | "updatedAt" | "ownerId" | "authorizedUsers" | "userRoles">) => {
     if (!user) return null;
@@ -400,6 +461,8 @@ export interface StudentStats {
   strugglingGoals: { goal: string; average: number }[];
   totalPossible: number;
   totalEarned: number;
+  logs: DailyLog[];
+  createdAt: string;
 }
 
 export function useAdminStats(daysRange: number = 7) {
@@ -414,8 +477,10 @@ export function useAdminStats(daysRange: number = 7) {
     }
 
     setLoadingLogs(true);
+    // We fetch at least 90 days to support the compliance timeline and historical tracking
+    const fetchRange = Math.max(daysRange, 90);
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - daysRange);
+    startDate.setDate(startDate.getDate() - fetchRange);
     const startDateStr = startDate.toISOString().split('T')[0];
 
     const unsubscribes: (() => void)[] = [];
@@ -450,7 +515,16 @@ export function useAdminStats(daysRange: number = 7) {
 
   const stats: StudentStats[] = useMemo(() => {
     return students.map(student => {
-      const logs = studentLogsMap[student.id!] || [];
+      const allLogs = studentLogsMap[student.id!] || [];
+      
+      // Filter logs for percentage calculation based on requested daysRange
+      const now = new Date();
+      const cutoffDate = new Date();
+      cutoffDate.setDate(now.getDate() - daysRange);
+      const cutoffStr = cutoffDate.toISOString().split('T')[0];
+      
+      const filteredLogs = allLogs.filter(l => l.date >= cutoffStr);
+
       const behaviorScores: Record<string, { total: number; count: number }> = {};
       
       // Initialize behavior scores tracking
@@ -461,7 +535,7 @@ export function useAdminStats(daysRange: number = 7) {
       let grandTotalPossible = 0;
       let grandTotalEarned = 0;
 
-      logs.forEach(log => {
+      filteredLogs.forEach(log => {
         if (log.attendance !== "present") return;
         
         let periodDataParsed: Record<string, any> = {};
@@ -502,10 +576,12 @@ export function useAdminStats(daysRange: number = 7) {
         percentage,
         strugglingGoals: goalAverages.slice(0, 2),
         totalPossible: grandTotalPossible,
-        totalEarned: grandTotalEarned
+        totalEarned: grandTotalEarned,
+        logs: allLogs,
+        createdAt: student.createdAt
       };
     });
-  }, [students, studentLogsMap]);
+  }, [students, studentLogsMap, daysRange]);
 
   return { stats, loading: studentsLoading || loadingLogs };
 }

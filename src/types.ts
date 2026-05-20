@@ -16,7 +16,7 @@ export type Student = {
   updatedAt: string;
 };
 
-export type AttendanceStatus = "present" | "absent" | "school_closed";
+export type AttendanceStatus = "present" | "absent" | "school_closed" | "teacher_absent";
 export type PeriodStatus = "present" | "missed";
 
 export type PeriodScore = {

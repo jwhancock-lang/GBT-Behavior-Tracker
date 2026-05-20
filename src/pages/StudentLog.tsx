@@ -1,22 +1,24 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
-import { format, subDays, addDays, isToday, parseISO, parse, isWeekend } from "date-fns";
-import { useStudents, useDailyLogs, useDailyNote, useAllDailyNotes } from "../hooks/useDatabase";
+import { useParams, Link, useSearchParams } from "react-router-dom";
+import { format, subDays, addDays, isToday, parseISO, parse, isWeekend, isValid } from "date-fns";
+import { useStudents, useDailyLogs, useDailyNote, useAllDailyNotes, useSystemAdmins } from "../hooks/useDatabase";
 import { useAuth } from "../components/AuthProvider";
 import { usePermissions } from "../hooks/usePermissions";
 import { PeriodScore, DailyLog, AttendanceStatus } from "../types";
+import { CollaboratorManager } from "../components/CollaboratorManager";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "../components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { ChevronLeft, ChevronRight, ArrowLeft, Calendar as CalendarIcon, TrendingUp, Share2, ChevronDown, ChevronUp, CheckCircle2, Lightbulb, AlertTriangle, Smile, Meh, Frown, BarChart2, CheckSquare, MinusCircle, MessageSquare } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowLeft, Calendar as CalendarIcon, TrendingUp, Share2, ChevronDown, ChevronUp, CheckCircle2, Lightbulb, AlertTriangle, Smile, Meh, Frown, BarChart2, CheckSquare, MinusCircle, MessageSquare, Trash2, Shield, Eye } from "lucide-react";
 import { cn } from "../lib/utils";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { StudentReport } from "../components/StudentReport";
 import { PeriodImage } from "../components/PeriodImage";
 import { KidMode } from "../components/KidMode";
 import { Star } from "lucide-react";
+import { SYSTEM_ADMINS } from "../lib/constants";
 
 const getPrevWeekday = (d: Date) => {
   let prev = subDays(d, 1);
@@ -36,18 +38,36 @@ const getNextWeekday = (d: Date) => {
 
 export default function StudentLog() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { students, updateStudent, loading: studentsLoading } = useStudents();
   const { logs, loading: logsLoading, saveLog } = useDailyLogs(id);
   const { notes: allDailyNotes } = useAllDailyNotes(id);
   const { user } = useAuth();
+  const { admins: dynamicAdmins } = useSystemAdmins();
   
   const [currentDate, setCurrentDate] = useState<Date>(() => {
+    const dateParam = searchParams.get("date");
+    if (dateParam) {
+      const parsed = parseISO(dateParam);
+      if (isValid(parsed)) return parsed;
+    }
     const today = new Date();
     return isWeekend(today) ? getPrevWeekday(today) : today;
   });
+
+  // Sync date to URL
+  useEffect(() => {
+    const dateStr = format(currentDate, "yyyy-MM-dd");
+    if (searchParams.get("date") !== dateStr) {
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev);
+        next.set("date", dateStr);
+        return next;
+      }, { replace: true });
+    }
+  }, [currentDate, searchParams, setSearchParams]);
+
   const [isShareOpen, setIsShareOpen] = useState(false);
-  const [shareEmail, setShareEmail] = useState("");
-  const [shareRole, setShareRole] = useState<'edit' | 'view'>('view');
   
   const [attendance, setAttendance] = useState<AttendanceStatus>("present");
   const [periodData, setPeriodData] = useState<Record<string, PeriodScore>>({});
@@ -62,51 +82,14 @@ export default function StudentLog() {
   const [localDailyNote, setLocalDailyNote] = useState("");
 
   const student = useMemo(() => students.find(s => s.id === id), [students, id]);
-  const { isOwner, canEditProfile, canLogData } = usePermissions(student || null);
+  const { isSystemAdmin, canManageAccess, canEditSettings, canLogData, roleLabel } = usePermissions(student || null);
   const dateStr = format(currentDate, "yyyy-MM-dd");
   const currentLog = useMemo(() => logs.find(l => l.date === dateStr), [logs, dateStr]);
   const { note: dailyNoteText, saveNote: saveDailyNote } = useDailyNote(id, dateStr);
 
   useEffect(() => {
-    if (student && student.name.toUpperCase() === "ZANE" && user && (user.email || "").toLowerCase() === "jwhancock@asheboro.k12.nc.us") {
-      // Direct update for Zane's editor role if missing
-      const email = (user.email || "").toLowerCase();
-      const currentRoles = student.userRoles || {};
-      if (currentRoles[email] !== 'edit') {
-        updateStudent(student.id!, {
-          userRoles: {
-            ...currentRoles,
-            [email]: 'edit'
-          }
-        });
-      }
-    }
-  }, [student?.id, user?.email, updateStudent]);
-
-  const handleShareSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!student || !shareEmail.trim() || !isOwner) return;
-    const email = shareEmail.trim().toLowerCase();
-    const currentEmails = student.teacherEmails || [];
-    const currentRoles = student.userRoles || {};
-    
-    try {
-      await updateStudent(student.id!, {
-        teacherEmails: Array.from(new Set([...currentEmails, email])),
-        userRoles: {
-          ...currentRoles,
-          [email]: shareRole
-        }
-      });
-      
-      setShareEmail("");
-      setShareRole("view");
-      setIsShareOpen(false);
-    } catch (err) {
-      console.error("Sharing failed:", err);
-      alert("Failed to share access. Only owners can manage collaborators.");
-    }
-  };
+    // Role synchronization or other side effects can go here
+  }, [student?.id, user?.email]);
 
   useEffect(() => {
     setLocalDailyNote(dailyNoteText);
@@ -229,7 +212,7 @@ export default function StudentLog() {
 
   // Calculate generic daily score mapping for trend line
   const calculateDailyScore = (log: DailyLog) => {
-    if (log.attendance === "absent" || log.attendance === "school_closed") return null;
+    if (log.attendance === "absent" || log.attendance === "school_closed" || log.attendance === "teacher_absent") return null;
     try {
       const data: Record<string, PeriodScore> = JSON.parse(log.periodData);
       let possible = 0;
@@ -283,7 +266,7 @@ export default function StudentLog() {
     });
 
     filteredLogs.forEach(log => {
-      if (log.attendance === "absent" || log.attendance === "school_closed") return;
+      if (log.attendance === "absent" || log.attendance === "school_closed" || log.attendance === "teacher_absent") return;
       try {
         const data: Record<string, PeriodScore> = JSON.parse(log.periodData);
         student.schedule.forEach(period => {
@@ -472,6 +455,7 @@ export default function StudentLog() {
       <option value="present">Present</option>
       <option value="absent">Absent</option>
       <option value="school_closed">School Closed</option>
+      <option value="teacher_absent">Teacher Absent</option>
     </select>
   );
 
@@ -504,7 +488,17 @@ export default function StudentLog() {
             </Link>
           </Button>
           <div>
-            <h2 className="text-2xl font-black tracking-tight text-slate-900 uppercase leading-none">{student.name}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-black tracking-tight text-slate-900 uppercase leading-none">{student.name}</h2>
+              {roleLabel && roleLabel !== "Staff" && (
+                <span className={cn(
+                  "px-1.5 py-0.5 text-[9px] font-black uppercase rounded tracking-tighter leading-none border",
+                  roleLabel === "Admin" ? "bg-slate-900 text-white border-slate-900" : "bg-orange-100 text-orange-700 border-orange-200 shadow-sm"
+                )}>
+                  {roleLabel}
+                </span>
+              )}
+            </div>
             {(student.gradeLevel || student.homeroomTeacher) && (
               <div className="flex items-center gap-1.5 text-[10px] font-black text-orange-600 uppercase tracking-widest mt-1">
                 {student.gradeLevel && <span>Grade {student.gradeLevel}</span>}
@@ -517,7 +511,7 @@ export default function StudentLog() {
         </div>
         
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          {isOwner && (
+          {canManageAccess && (
             <Dialog open={isShareOpen} onOpenChange={setIsShareOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9 px-4 font-bold text-xs bg-white border-slate-200 shadow-sm">
@@ -525,79 +519,30 @@ export default function StudentLog() {
                   Collaborate
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Share Access</DialogTitle>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Share2 className="h-4 w-4 text-orange-600" />
+                    Collaborate: {student.name}
+                  </DialogTitle>
                   <DialogDescription>
-                    Allow another teacher to view and edit this student's target tracking logs.
+                    Manage who can view and log behavior data for this student.
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleShareSubmit} className="space-y-4 pt-4">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Teacher Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={shareEmail}
-                        onChange={e => setShareEmail(e.target.value)}
-                        placeholder="teacher@school.edu"
-                        autoFocus
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Access Level</Label>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant={shareRole === 'view' ? 'default' : 'outline'}
-                          className="flex-1 text-xs font-bold uppercase tracking-widest h-8"
-                          onClick={() => setShareRole('view')}
-                        >
-                          View Only
-                        </Button>
-                        <Button
-                          type="button"
-                          variant={shareRole === 'edit' ? 'default' : 'outline'}
-                          className="flex-1 text-xs font-bold uppercase tracking-widest h-8"
-                          onClick={() => setShareRole('edit')}
-                        >
-                          Full Edit
-                        </Button>
-                      </div>
-                      <p className="text-[10px] text-slate-500 font-medium">
-                        {shareRole === 'view' 
-                          ? 'Can view reports and record daily logs, but cannot change student settings.' 
-                          : 'Can modify student name, behaviors, schedule, and sharing settings.'}
-                      </p>
-                    </div>
-                    <Button type="submit" className="w-full" disabled={!shareEmail.trim()}>Add Collaborator</Button>
-                  </div>
-                  <div className="space-y-2 pt-2">
-                    <p className="text-sm font-bold text-slate-900 uppercase tracking-tight">Current Collaborators</p>
-                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
-                      {student.teacherEmails && student.teacherEmails.length > 0 ? (
-                        student.teacherEmails.filter(e => e !== student.ownerId).map(email => (
-                          <div key={email} className="px-3 py-2 text-xs flex items-center justify-between border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
-                            <span className="font-medium text-slate-600 truncate mr-2">{email}</span>
-                            <span className={cn(
-                              "text-[9px] font-black uppercase px-2 py-0.5 rounded border",
-                              student.userRoles?.[email] === 'edit' 
-                                ? "text-emerald-600 bg-emerald-50 border-emerald-100" 
-                                : "text-blue-600 bg-blue-50 border-blue-100"
-                            )}>
-                              {student.userRoles?.[email] === 'edit' ? 'Editor' : 'Viewer'}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-[10px] text-slate-400 font-bold uppercase p-4 text-center tracking-widest">
-                          Private record
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </form>
+
+                <CollaboratorManager 
+                  student={student}
+                  onUpdate={async (updates) => {
+                    if (student.id) {
+                      await updateStudent(student.id, updates);
+                    }
+                  }}
+                  onClose={() => setIsShareOpen(false)}
+                />
+
+                <DialogFooter className="pt-4">
+                  <Button variant="outline" className="w-full h-10 font-black uppercase tracking-widest text-[10px]" onClick={() => setIsShareOpen(false)}>Close</Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           )}
@@ -731,9 +676,9 @@ export default function StudentLog() {
                                 type="monotone" 
                                 dataKey="score" 
                                 stroke="#ea580c" 
-                                strokeWidth={2.5}
-                                dot={{ r: 2, fill: '#ea580c' }}
-                                activeDot={{ r: 4 }}
+                                strokeWidth={3}
+                                dot={{ r: 4, fill: '#ea580c', stroke: '#fff', strokeWidth: 2 }}
+                                activeDot={{ r: 6, fill: '#ea580c', stroke: '#fff', strokeWidth: 2 }}
                               />
                             </LineChart>
                           </ResponsiveContainer>
@@ -756,7 +701,7 @@ export default function StudentLog() {
                     </div>
                   </div>
                   
-                  {attendance === "absent" || attendance === "school_closed" ? (
+                  {attendance === "absent" || attendance === "school_closed" || attendance === "teacher_absent" ? (
                     <div className="py-24 text-center bg-white border-2 border-dashed border-slate-200 rounded-2xl">
                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">
                          Day set as {attendance.split('_').join(' ')}

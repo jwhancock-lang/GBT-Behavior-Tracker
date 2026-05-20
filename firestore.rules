@@ -13,32 +13,42 @@ service cloud.firestore {
     function existing() { return resource.data; }
     function hasAllKeys(data, keys) { return data.keys().hasAll(keys) && data.keys().size() == keys.size(); }
 
-    // Validation Helpers
-    function isValidUserProfile(data) {
-      return
-        data.email is string && data.email.size() <= 100 &&
-        data.createdAt is string && data.createdAt.size() <= 50;
+    // Tier 1: System Administrator
+    function isSystemAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email != null && request.auth.token.email.lower() in [
+          'cculp@asheboro.k12.nc.us',
+          'jwhancock@asheboro.k12.nc.us',
+          'aseagraves@asheboro.k12.nc.us'
+        ]) || 
+        (request.auth.token.email != null && exists(/databases/$(database)/documents/system_admins/$(request.auth.token.email.lower())))
+      );
+    }
+
+    match /system_admins/{email} {
+      allow get, list: if isSignedIn();
+      allow write: if isSystemAdmin();
+    }
+
+    // Role assigned to this specific student
+    function getUserRole(studentData) {
+      return studentData.get('userRoles', {}).get(request.auth.token.email.lower(), 'none');
+    }
+
+    // Tier 2: Case Manager (Can modify student settings/behaviors)
+    function isCaseManager(studentData) {
+      return isSystemAdmin() || getUserRole(studentData) == 'edit';
+    }
+
+    // Tier 3: Contributor (Can record data)
+    function canLogData(studentData) {
+      return isSystemAdmin() || 
+             getUserRole(studentData) in ['edit', 'view'] ||
+             studentData.get('teacherEmails', []).hasAny([request.auth.token.email.lower()]);
     }
 
     function isOwnerOrShared(studentData) {
-      return (studentData.ownerId == request.auth.uid) || 
-             isAdminOverride(studentData) ||
-             (studentData.get('teacherEmails', []).hasAny([request.auth.token.email.lower()])) ||
-             (studentData.get('userRoles', {}).get(request.auth.token.email.lower(), 'none') in ['edit', 'view']);
-    }
-
-    function isAdminOverride(studentData) {
-      return (studentData.get('name', '').upper() == 'ZANE' && request.auth.token.email.lower() == 'jwhancock@asheboro.k12.nc.us');
-    }
-
-    function isEditor(studentData) {
-      return (studentData.ownerId == request.auth.uid) || 
-             isAdminOverride(studentData) ||
-             (studentData.get('userRoles', {}).get(request.auth.token.email.lower(), 'view') == 'edit');
-    }
-
-    function isOwner(studentData) {
-      return (studentData.ownerId == request.auth.uid) || isAdminOverride(studentData);
+      return canLogData(studentData);
     }
 
     function isValidStudent(data) {
@@ -81,6 +91,13 @@ service cloud.firestore {
         data.updatedAt is string && data.updatedAt.size() <= 50;
     }
 
+    // Validation Helpers
+    function isValidUserProfile(data) {
+      return
+        data.email is string && data.email.size() <= 100 &&
+        data.createdAt is string && data.createdAt.size() <= 50;
+    }
+
     match /users/{userId} {
       allow read: if isSignedIn() && request.auth.uid == userId;
       allow create: if isSignedIn() && request.auth.uid == userId &&
@@ -97,38 +114,38 @@ service cloud.firestore {
     match /students/{studentId} {
       allow read: if isSignedIn() && isOwnerOrShared(existing());
       allow list: if isSignedIn() && isOwnerOrShared(resource.data);
-      allow create: if isSignedIn() && incoming().ownerId == request.auth.uid &&
+      allow create: if isSystemAdmin() &&
                        isValidId(studentId) &&
                        isValidStudent(incoming());
-      allow update: if isSignedIn() && isEditor(existing()) &&
+      allow update: if (isSystemAdmin() || isCaseManager(existing())) &&
                        isValidStudent(incoming()) &&
-                       (isOwner(existing()) || !incoming().diff(existing()).affectedKeys().hasAny(['teacherEmails', 'userRoles', 'authorizedUsers']));
-      allow delete: if isSignedIn() && isOwner(existing());
+                       (isSystemAdmin() || !incoming().diff(existing()).affectedKeys().hasAny(['name', 'gradeLevel', 'homeroomTeacher', 'teacherEmails', 'userRoles', 'authorizedUsers', 'status', 'ownerId']));
+      allow delete: if isSystemAdmin();
 
       match /logs/{logId} {
         allow read: if isSignedIn() && isOwnerOrShared(get(/databases/$(database)/documents/students/$(studentId)).data);
         allow list: if isSignedIn() && isOwnerOrShared(get(/databases/$(database)/documents/students/$(studentId)).data);
-        allow create: if isSignedIn() && isOwnerOrShared(get(/databases/$(database)/documents/students/$(studentId)).data) &&
+        allow create: if isSignedIn() && canLogData(get(/databases/$(database)/documents/students/$(studentId)).data) &&
                          isValidId(logId) &&
                          hasAllKeys(incoming(), ['date', 'attendance', 'periodData', 'createdAt', 'updatedAt']) &&
                          isValidDailyLog(incoming());
-        allow update: if isSignedIn() && isOwnerOrShared(get(/databases/$(database)/documents/students/$(studentId)).data) &&
+        allow update: if isSignedIn() && canLogData(get(/databases/$(database)/documents/students/$(studentId)).data) &&
                          isValidDailyLog(incoming()) &&
                          incoming().diff(existing()).affectedKeys().hasOnly(['attendance', 'periodData', 'updatedAt']) &&
                          incoming().date == existing().date &&
                          incoming().createdAt == existing().createdAt;
-        allow delete: if isSignedIn() && isOwnerOrShared(get(/databases/$(database)/documents/students/$(studentId)).data);
+        allow delete: if isSystemAdmin();
       }
 
       match /dailyNotes/{noteId} {
         allow read: if isSignedIn() && isOwnerOrShared(get(/databases/$(database)/documents/students/$(studentId)).data);
         allow list: if isSignedIn() && isOwnerOrShared(get(/databases/$(database)/documents/students/$(studentId)).data);
-        allow create: if isSignedIn() && isOwnerOrShared(get(/databases/$(database)/documents/students/$(studentId)).data) &&
+        allow create: if isSignedIn() && canLogData(get(/databases/$(database)/documents/students/$(studentId)).data) &&
                          isValidId(noteId) &&
                          incoming().keys().hasAll(['text', 'date', 'updatedAt']) &&
                          incoming().keys().size() == 3 &&
                          isValidDailyNote(incoming());
-        allow update: if isSignedIn() && isOwnerOrShared(get(/databases/$(database)/documents/students/$(studentId)).data) &&
+        allow update: if isSignedIn() && canLogData(get(/databases/$(database)/documents/students/$(studentId)).data) &&
                          isValidDailyNote(incoming()) &&
                          incoming().diff(existing()).affectedKeys().hasOnly(['text', 'updatedAt']) &&
                          incoming().date == existing().date;

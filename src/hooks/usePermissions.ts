@@ -1,41 +1,86 @@
 import { useMemo } from 'react';
 import { useAuth } from '../components/AuthProvider';
 import { Student } from '../types';
+import { SYSTEM_ADMINS } from '../lib/constants';
+import { useSystemAdmins } from './useDatabase';
 
 export function usePermissions(student: Student | null) {
   const { user } = useAuth();
+  const { admins: dynamicAdmins, loading: adminsLoading } = useSystemAdmins();
 
   return useMemo(() => {
     if (!user) {
       return {
-        isOwner: false,
-        canEditProfile: false,
+        isSystemAdmin: false,
+        roleLabel: "Guest",
+        fullRoleTitle: "No Access",
+        canCreateStudent: false,
+        canEditCore: false,
+        canEditSettings: false,
         canLogData: false,
+        canManageAccess: false,
+        loading: false,
       };
     }
-
+    
     // Normalized user email
     const email = (user.email || user.providerData?.[0]?.email || "").toLowerCase();
 
-    // Administrative override for specific user/student pair
-    const isAdminOverride = student?.name?.toUpperCase() === "ZANE" && email === "jwhancock@asheboro.k12.nc.us";
+    // 1. System Administrator Check (Hardcoded fallback + Dynamic Firestore list)
+    const isHardcodedAdmin = SYSTEM_ADMINS.some(e => e.toLowerCase() === email);
+    const isDynamicAdmin = dynamicAdmins.some(e => e.toLowerCase() === email);
+    const isSystemAdmin = isHardcodedAdmin || isDynamicAdmin;
 
-    // isOwner Logic: Must be the record creator OR have admin override
-    const isOwner = student ? (student.ownerId === user.uid || isAdminOverride) : false;
+    if (adminsLoading && !isHardcodedAdmin) {
+      return {
+        isSystemAdmin: false,
+        roleLabel: "Staff",
+        fullRoleTitle: "Loading...",
+        canCreateStudent: false,
+        canEditCore: false,
+        canEditSettings: false,
+        canLogData: false,
+        canManageAccess: false,
+        loading: true,
+      };
+    }
 
-    // canEditProfile Logic: Owner OR explicitly assigned 'edit' role
-    const canEditProfile = isOwner || (student?.userRoles?.[email] === 'edit');
+    // 2. Role assigned to this specific student
+    // We check both userRoles map and the legacy teacherEmails for robustness
+    const assignedRole = student?.userRoles?.[email];
+    
+    // Determine tiered level based on student data
+    const isCaseManager = assignedRole === 'edit';
+    const isContributor = assignedRole === 'view' || (student?.teacherEmails?.some(e => e.toLowerCase() === email));
 
-    // canLogData Logic: Editor OR Viewer (anyone in userRoles with either permission)
-    // Also include anyone in teacherEmails for legacy/robustness if needed, 
-    // but user requested focus on userRoles and ownerId.
-    const hasRole = student?.userRoles?.[email];
-    const canLogData = canEditProfile || hasRole === 'view' || (student?.teacherEmails?.some(e => e.toLowerCase() === email));
+    // Role Labeling (System Admin takes precedence)
+    const roleLabel = isSystemAdmin ? "Admin" : isCaseManager ? "Manager" : "Staff";
+    const fullRoleTitle = isSystemAdmin ? "System Administrator" : isCaseManager ? "Case Manager" : isContributor ? "Contributor" : "No Access";
+
+    // canCreateStudent: Only system admins
+    const canCreateStudent = isSystemAdmin;
+
+    // canManageAccess: Only system admins
+    const canManageAccess = isSystemAdmin;
+
+    // canEditCore (Name, Grade, Homeroom, Status): Only system admins
+    const canEditCore = isSystemAdmin;
+
+    // canEditSettings (Behaviors, Schedule): System admin OR case managers
+    const canEditSettings = isSystemAdmin || isCaseManager;
+
+    // canLogData: All roles
+    const canLogData = isSystemAdmin || isCaseManager || isContributor;
 
     return {
-      isOwner,
-      canEditProfile,
+      isSystemAdmin,
+      roleLabel,
+      fullRoleTitle,
+      canCreateStudent,
+      canManageAccess,
+      canEditCore,
+      canEditSettings,
       canLogData,
     };
-  }, [student, user]);
+  }, [student, user, dynamicAdmins, adminsLoading]);
 }
