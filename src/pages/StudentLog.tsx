@@ -13,12 +13,13 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { ChevronLeft, ChevronRight, ArrowLeft, Calendar as CalendarIcon, TrendingUp, Share2, ChevronDown, ChevronUp, CheckCircle2, Lightbulb, AlertTriangle, Smile, Meh, Frown, BarChart2, CheckSquare, MinusCircle, MessageSquare, Trash2, Shield, Eye } from "lucide-react";
 import { cn } from "../lib/utils";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { StudentReport } from "../components/StudentReport";
 import { PeriodImage } from "../components/PeriodImage";
 import { KidMode } from "../components/KidMode";
 import { Star } from "lucide-react";
 import { SYSTEM_ADMINS } from "../lib/constants";
+import { useIsMobile } from "../hooks/useMediaQuery";
 
 const getPrevWeekday = (d: Date) => {
   let prev = subDays(d, 1);
@@ -37,6 +38,7 @@ const getNextWeekday = (d: Date) => {
 };
 
 export default function StudentLog() {
+  const isMobile = useIsMobile();
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const { students, updateStudent, loading: studentsLoading } = useStudents();
@@ -593,7 +595,7 @@ export default function StudentLog() {
             <Button 
               variant="ghost" 
               size="icon"
-              className="h-10 w-10 text-white hover:bg-white/10 hover:text-white rounded-lg"
+              className="h-11 w-11 md:h-9 md:w-9 touch-action-manipulation select-none text-white hover:bg-white/10 hover:text-white rounded-lg"
               onClick={() => setCurrentDate(getPrevWeekday(currentDate))}
             >
               <ChevronLeft className="h-6 w-6" />
@@ -607,7 +609,7 @@ export default function StudentLog() {
             <Button 
               variant="ghost" 
               size="icon"
-              className="h-10 w-10 text-white hover:bg-white/10 hover:text-white rounded-lg"
+              className="h-11 w-11 md:h-9 md:w-9 touch-action-manipulation select-none text-white hover:bg-white/10 hover:text-white rounded-lg"
               disabled={isToday(currentDate) || getNextWeekday(currentDate) > new Date()}
               onClick={() => setCurrentDate(getNextWeekday(currentDate))}
             >
@@ -672,10 +674,31 @@ export default function StudentLog() {
                         </select>
                       </div>
                       <CardContent className="p-4">
-                        <div className="h-24 w-full">
-                          <ResponsiveContainer width="100%" height="100%">
+                        <div className="h-[250px] w-full">
+                          <ResponsiveContainer height={250} width="100%">
                             <LineChart data={chartData}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} horizontal={!isMobile} stroke="#f1f5f9" />
+                              <XAxis 
+                                dataKey="name" 
+                                axisLine={false} 
+                                tickLine={false} 
+                                tick={{ fontSize: 9, fontWeight: 'bold', fill: '#94a3b8' }}
+                              />
+                              <YAxis hide={isMobile} domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 'bold', fill: '#94a3b8' }} tickFormatter={(val) => `${val}%`} />
+                              <Tooltip 
+                                trigger={isMobile ? "click" : "hover"}
+                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }}
+                                formatter={(val: number) => [`${Math.round(val)}%`, 'Score']} 
+                              />
+                              <Legend 
+                                verticalAlign="bottom" 
+                                align="center" 
+                                height={36} 
+                                iconSize={10} 
+                                wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} 
+                              />
                               <Line 
+                                name="Historical Score"
                                 type="monotone" 
                                 dataKey="score" 
                                 stroke="#ea580c" 
@@ -782,13 +805,13 @@ export default function StudentLog() {
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-7 w-7 text-slate-400 rounded-md hover:bg-slate-200/50"
+                                      className="h-11 w-11 md:h-9 md:w-9 touch-action-manipulation select-none text-slate-400 rounded-md hover:bg-slate-200/50"
                                       onClick={(e) => { e.stopPropagation(); handlePeriodStatusToggle(period); }}
                                     >
-                                      <MinusCircle className={cn("h-4 w-4", isMissed && "text-orange-500")} />
+                                      <MinusCircle className={cn("h-5 w-5 md:h-4 md:w-4", isMissed && "text-orange-500")} />
                                     </Button>
                                     <div className="text-slate-300">
-                                      {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                                      {isExpanded ? <ChevronUp className="h-4 w-4 md:h-3.5 md:w-3.5" /> : <ChevronDown className="h-4 w-4 md:h-3.5 md:w-3.5" />}
                                     </div>
                                   </div>
                                 </div>
@@ -804,7 +827,7 @@ export default function StudentLog() {
                                           <div className="flex-1 min-w-0">
                                             <p className="text-[10px] md:text-[11px] font-black text-slate-600 uppercase tracking-tight truncate">{behavior}</p>
                                           </div>
-                                          <div className="flex gap-1 shrink-0">
+                                          <div className="flex gap-1.5 shrink-0">
                                             {[
                                               { val: 0, icon: Frown, color: "bg-red-500", label: "NO" },
                                               { val: 1, icon: Smile, color: "bg-emerald-500", label: "YES" }
@@ -813,26 +836,26 @@ export default function StudentLog() {
                                                 key={opt.val}
                                                 onClick={() => handleScoreChange(period, behavior, opt.val)}
                                                 className={cn(
-                                                  "w-10 h-7 md:w-12 md:h-8 rounded-md flex flex-col items-center justify-center transition-all border",
+                                                  "h-11 w-11 md:h-9 md:w-12 rounded-md flex flex-col items-center justify-center transition-all border touch-action-manipulation select-none",
                                                   currentScore === opt.val 
                                                     ? cn(opt.color, "text-white border-transparent shadow-sm") 
                                                     : "bg-slate-50 text-slate-300 border-slate-100 hover:border-slate-200 hover:bg-slate-100"
                                                 )}
                                               >
-                                                <opt.icon className="h-3 w-3 md:h-3.5 md:w-3.5" />
-                                                <span className="text-[7px] md:text-[8px] font-black leading-none mt-0.5">{opt.label}</span>
+                                                <opt.icon className="h-3.5 w-3.5 md:h-3.5 md:w-3.5" />
+                                                <span className="text-[8px] font-black leading-none mt-0.5">{opt.label}</span>
                                               </button>
                                             ))}
                                             <button
                                               onClick={() => handleScoreChange(period, behavior, -1)}
                                               className={cn(
-                                                "w-7 h-7 md:w-8 md:h-8 rounded-md flex items-center justify-center transition-all border",
+                                                "h-11 w-11 md:h-9 md:w-9 rounded-md flex items-center justify-center transition-all border touch-action-manipulation select-none",
                                                 currentScore === -1 
                                                   ? "bg-slate-400 text-white border-transparent" 
-                                                  : "bg-slate-50 text-slate-300 border-slate-100"
+                                                  : "bg-slate-50 text-slate-300 border-slate-100 hover:bg-slate-100"
                                               )}
                                             >
-                                              <MinusCircle className="h-3 w-3 md:h-3.5 md:w-3.5" />
+                                              <MinusCircle className="h-3.5 w-3.5 md:h-3.5 md:w-3.5" />
                                             </button>
                                           </div>
                                         </div>
@@ -902,10 +925,31 @@ export default function StudentLog() {
                           </select>
                         </div>
                         <CardContent className="p-4">
-                          <div className="h-24 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
+                          <div className="h-[250px] w-full">
+                            <ResponsiveContainer height={250} width="100%">
                               <LineChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} horizontal={!isMobile} stroke="#f1f5f9" />
+                                <XAxis 
+                                  dataKey="name" 
+                                  axisLine={false} 
+                                  tickLine={false} 
+                                  tick={{ fontSize: 9, fontWeight: 'bold', fill: '#94a3b8' }}
+                                />
+                                <YAxis hide={isMobile} domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 'bold', fill: '#94a3b8' }} tickFormatter={(val) => `${val}%`} />
+                                <Tooltip 
+                                  trigger={isMobile ? "click" : "hover"}
+                                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }}
+                                  formatter={(val: number) => [`${Math.round(val)}%`, 'Score']} 
+                                />
+                                <Legend 
+                                  verticalAlign="bottom" 
+                                  align="center" 
+                                  height={36} 
+                                  iconSize={10} 
+                                  wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} 
+                                />
                                 <Line 
+                                  name="Historical Score"
                                   type="monotone" 
                                   dataKey="score" 
                                   stroke="#ea580c" 

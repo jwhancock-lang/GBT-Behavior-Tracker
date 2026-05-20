@@ -7,6 +7,7 @@ import { WeeklyDigest } from './WeeklyDigest';
 import { Button } from './ui/button';
 import { Lightbulb, AlertTriangle, CheckSquare, TrendingUp, BarChart2 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useIsMobile } from '../hooks/useMediaQuery';
 
 const getStyleForScore = (score: number, minInView: number = 0) => {
   // Color Scale: <70 Red, 70-85 Orange/Yellow, 85+ Green
@@ -77,6 +78,7 @@ interface StudentReportProps {
 }
 
 export function StudentReport({ student, logs, allDailyNotes = [] }: StudentReportProps) {
+  const isMobile = useIsMobile();
   const [tab, setTab] = useState<"digest" | "trends" | "insights">("digest");
   const [trendRange, setTrendRange] = useState<"day" | "week" | "month">("month");
 
@@ -466,12 +468,12 @@ export function StudentReport({ student, logs, allDailyNotes = [] }: StudentRepo
               </div>
               <CardContent className="h-[250px] px-2 py-4">
                 {(trendRange === 'month' ? monthlyData : trendRange === 'week' ? weeklyData : dailyData).length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer height={250} width="100%">
                     <LineChart 
                       data={trendRange === 'month' ? monthlyData : trendRange === 'week' ? weeklyData : dailyData} 
                       margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} horizontal={!isMobile} stroke="#f1f5f9" />
                       <XAxis 
                         dataKey="name" 
                         axisLine={false} 
@@ -479,12 +481,21 @@ export function StudentReport({ student, logs, allDailyNotes = [] }: StudentRepo
                         tick={{ fontSize: 9, fontWeight: 'bold', fill: '#94a3b8' }}
                         interval={trendRange === 'day' ? Math.floor(dailyData.length / 10) : 0}
                       />
-                      <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 'bold', fill: '#94a3b8' }} tickFormatter={(val) => `${val}%`} />
+                      <YAxis hide={isMobile} domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 'bold', fill: '#94a3b8' }} tickFormatter={(val) => `${val}%`} />
                       <Tooltip 
+                        trigger={isMobile ? "click" : "hover"}
                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }}
                         formatter={(val: number) => [`${Math.round(val)}%`, 'Score']} 
                       />
+                      <Legend 
+                        verticalAlign="bottom" 
+                        align="center" 
+                        height={36} 
+                        iconSize={10} 
+                        wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} 
+                      />
                       <Line 
+                        name="Performance Score"
                         type="monotone" 
                         dataKey="score" 
                         stroke={trendRange === 'month' ? "#3b82f6" : trendRange === 'week' ? "#ea580c" : "#10b981"} 
@@ -493,7 +504,7 @@ export function StudentReport({ student, logs, allDailyNotes = [] }: StudentRepo
                         activeDot={{ r: 6 }} 
                         isAnimationActive={false} 
                       />
-                      <Line type="linear" dataKey="trend" stroke="#cbd5e1" strokeWidth={1} strokeDasharray="4 4" dot={false} activeDot={false} isAnimationActive={false} />
+                      <Line name="Linear Trend" type="linear" dataKey="trend" stroke="#cbd5e1" strokeWidth={1} strokeDasharray="4 4" dot={false} activeDot={false} isAnimationActive={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
@@ -509,14 +520,22 @@ export function StudentReport({ student, logs, allDailyNotes = [] }: StudentRepo
                   <h4 className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Behavior</h4>
                   <BarChart2 className="h-3.5 w-3.5 text-slate-300" />
                 </div>
-                <CardContent className="h-[220px] px-2 py-2">
+                <CardContent className="h-[250px] px-2 py-2">
                   {behaviorAverages.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer height={250} width="100%">
                       <BarChart data={behaviorAverages} layout="vertical" margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
                         <XAxis type="number" domain={[0, 100]} hide />
-                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 'bold', fill: '#64748b' }} width={90} />
-                        <Tooltip cursor={{ fill: '#f8fafc' }} formatter={(val: number) => [`${val}%`, 'Score']} />
+                        <YAxis hide={isMobile} dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 'bold', fill: '#64748b' }} width={90} />
+                        <Tooltip trigger={isMobile ? "click" : "hover"} cursor={{ fill: '#f8fafc' }} formatter={(val: number) => [`${val}%`, 'Score']} />
+                        <Legend 
+                          verticalAlign="bottom" 
+                          align="center" 
+                          height={36} 
+                          iconSize={10} 
+                          wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} 
+                        />
                         <Bar 
+                          name="Target Success Rate"
                           dataKey="score" 
                           fill="#ea580c" 
                           radius={[0, 6, 6, 0]} 

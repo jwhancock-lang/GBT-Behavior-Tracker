@@ -109,7 +109,7 @@ export function KidMode({ student, periodData, onImageSelected, onScoreChange }:
                                   key={score}
                                   onClick={() => onScoreChange(period, behavior, score)}
                                   className={cn(
-                                    "w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center text-2xl rounded-full border-2 transition-transform hover:scale-110",
+                                    "h-11 w-11 md:h-9 md:w-9 touch-action-manipulation select-none flex items-center justify-center text-xl md:text-lg rounded-full border-2 transition-transform hover:scale-110",
                                     colorClass,
                                     isSelected && "ring-2 ring-offset-1 ring-black/20 scale-110 z-10"
                                   )}

@@ -1,0 +1,22 @@
+{
+  "short_name": "GBT Tracker",
+  "name": "GBT Behavior Tracker",
+  "description": "High-frequency tracking of student target behaviors and performance logging.",
+  "icons": [
+    {
+      "src": "/src/assets/images/tiger_icon_1779212841108.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/src/assets/images/tiger_mascot_final_v2_1779214043375.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#000000",
+  "theme_color": "#ea580c",
+  "display": "standalone",
+  "orientation": "portrait"
+}

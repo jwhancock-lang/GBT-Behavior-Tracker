@@ -5,13 +5,36 @@ import { useAuth } from "../components/AuthProvider";
 import { SYSTEM_ADMINS } from "../lib/constants";
 import { Student, DailyLog, PersonalGroup } from "../types";
 
+function useDatabaseVisibility() {
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      const isMobileViewport = window.matchMedia("(max-width: 767px)").matches;
+      if (isMobileViewport) {
+        setIsVisible(document.visibilityState === "visible");
+      } else {
+        setIsVisible(true);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
+  return isVisible;
+}
+
 export function useSystemAdmins() {
   const { user, loading: authLoading } = useAuth();
   const [admins, setAdmins] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const isVisible = useDatabaseVisibility();
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || !isVisible) return;
     if (!user) {
       setAdmins([]);
       setLoading(false);
@@ -30,7 +53,7 @@ export function useSystemAdmins() {
       setLoading(false);
     });
     return unsubscribe;
-  }, [user, authLoading]);
+  }, [user, authLoading, isVisible]);
 
   const addAdmin = async (email: string) => {
     const cleanEmail = email.toLowerCase().trim();
@@ -60,8 +83,10 @@ export function useStudents() {
   const { admins } = useSystemAdmins();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const isVisible = useDatabaseVisibility();
 
   useEffect(() => {
+    if (!isVisible) return;
     if (!user || (!user.email && !user.providerData[0]?.email)) {
       setStudents([]);
       setLoading(false);
@@ -100,7 +125,7 @@ export function useStudents() {
     });
 
     return () => unsubscribe();
-  }, [user, admins]);
+  }, [user, admins, isVisible]);
 
   const addStudent = async (studentData: Omit<Student, "id" | "createdAt" | "updatedAt" | "ownerId" | "authorizedUsers" | "userRoles">) => {
     if (!user) return null;
@@ -157,8 +182,10 @@ export function useDailyNote(studentId: string | undefined, dateStr: string) {
   const { user } = useAuth();
   const [note, setNote] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const isVisible = useDatabaseVisibility();
 
   useEffect(() => {
+    if (!isVisible) return;
     if (!user || !studentId || !dateStr) {
       setNote("");
       setLoading(false);
@@ -178,7 +205,7 @@ export function useDailyNote(studentId: string | undefined, dateStr: string) {
     });
 
     return () => unsubscribe();
-  }, [user, studentId, dateStr]);
+  }, [user, studentId, dateStr, isVisible]);
 
   const saveNote = async (text: string) => {
     if (!user || !studentId || !dateStr) return;
@@ -203,8 +230,10 @@ export function useAllDailyNotes(studentId: string | undefined) {
   const { user } = useAuth();
   const [notes, setNotes] = useState<DailyNote[]>([]);
   const [loading, setLoading] = useState(true);
+  const isVisible = useDatabaseVisibility();
 
   useEffect(() => {
+    if (!isVisible) return;
     if (!user || !studentId) {
       setNotes([]);
       setLoading(false);
@@ -228,7 +257,7 @@ export function useAllDailyNotes(studentId: string | undefined) {
     });
 
     return () => unsubscribe();
-  }, [user, studentId]);
+  }, [user, studentId, isVisible]);
 
   return { notes, loading };
 }
@@ -237,8 +266,10 @@ export function useDailyLogs(studentId: string | undefined) {
   const { user } = useAuth();
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const isVisible = useDatabaseVisibility();
 
   useEffect(() => {
+    if (!isVisible) return;
     if (!user || !studentId) {
       setLogs([]);
       setLoading(false);
@@ -262,7 +293,7 @@ export function useDailyLogs(studentId: string | undefined) {
     });
 
     return () => unsubscribe();
-  }, [user, studentId]);
+  }, [user, studentId, isVisible]);
 
   const saveLog = async (logData: Omit<DailyLog, "createdAt" | "updatedAt">) => {
     if (!user || !studentId) return;
@@ -366,8 +397,10 @@ export function usePersonalGroups() {
   const { user } = useAuth();
   const [groups, setGroups] = useState<PersonalGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  const isVisible = useDatabaseVisibility();
 
   useEffect(() => {
+    if (!isVisible) return;
     if (!user) {
       setGroups([]);
       setLoading(false);
@@ -392,7 +425,7 @@ export function usePersonalGroups() {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, isVisible]);
 
   const updateStudentGroups = async (studentId: string, groupNames: string[]) => {
     if (!user) return;
@@ -469,8 +502,10 @@ export function useAdminStats(daysRange: number = 7) {
   const { students, loading: studentsLoading } = useStudents();
   const [studentLogsMap, setStudentLogsMap] = useState<Record<string, DailyLog[]>>({});
   const [loadingLogs, setLoadingLogs] = useState(true);
+  const isVisible = useDatabaseVisibility();
 
   useEffect(() => {
+    if (!isVisible) return;
     if (studentsLoading || students.length === 0) {
       if (!studentsLoading) setLoadingLogs(false);
       return;
@@ -511,7 +546,7 @@ export function useAdminStats(daysRange: number = 7) {
     setLoadingLogs(false);
 
     return () => unsubscribes.forEach(unsub => unsub());
-  }, [students, studentsLoading, daysRange]);
+  }, [students, studentsLoading, daysRange, isVisible]);
 
   const stats: StudentStats[] = useMemo(() => {
     return students.map(student => {
