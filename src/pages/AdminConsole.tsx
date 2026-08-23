@@ -25,19 +25,17 @@ import { useAuth } from "../components/AuthProvider";
 
 const DEFAULT_SCHEDULE = [
   "Arrival",
-  "Reading",
+  "Morning Meeting",
+  "ELA",
   "Math",
-  "Specials",
-  "Lunch",
+  "Tiger Time",
   "Recess",
-  "Dismissal"
+  "Lunch",
+  "Specials",
+  "Departure"
 ];
 
-const DEFAULT_BEHAVIORS = [
-  "Follows directions",
-  "Keep hands and feet to self",
-  "Stays on task"
-];
+const DEFAULT_BEHAVIORS: string[] = [];
 
 export default function AdminConsole() {
   const { user: authUser } = useAuth();

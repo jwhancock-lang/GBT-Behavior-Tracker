@@ -5,7 +5,7 @@ import { SYSTEM_ADMINS } from '../lib/constants';
 import { useSystemAdmins } from './useDatabase';
 
 export function usePermissions(student: Student | null) {
-  const { user } = useAuth();
+  const { user, impersonatedRole } = useAuth();
   const { admins: dynamicAdmins, loading: adminsLoading } = useSystemAdmins();
 
   return useMemo(() => {
@@ -29,7 +29,7 @@ export function usePermissions(student: Student | null) {
     // 1. System Administrator Check (Hardcoded fallback + Dynamic Firestore list)
     const isHardcodedAdmin = SYSTEM_ADMINS.some(e => e.toLowerCase() === email);
     const isDynamicAdmin = dynamicAdmins.some(e => e.toLowerCase() === email);
-    const isSystemAdmin = isHardcodedAdmin || isDynamicAdmin;
+    const isActualAdmin = isHardcodedAdmin || isDynamicAdmin;
 
     if (adminsLoading && !isHardcodedAdmin) {
       return {
@@ -45,13 +45,26 @@ export function usePermissions(student: Student | null) {
       };
     }
 
+    // Determine simulated/active role
+    const activeRole = isActualAdmin ? impersonatedRole : null;
+    const isSystemAdmin = isActualAdmin && activeRole === null;
+
     // 2. Role assigned to this specific student
     // We check both userRoles map and the legacy teacherEmails for robustness
     const assignedRole = student?.userRoles?.[email];
     
     // Determine tiered level based on student data
-    const isCaseManager = assignedRole === 'edit';
-    const isContributor = assignedRole === 'view' || (student?.teacherEmails?.some(e => e.toLowerCase() === email));
+    let isCaseManager = false;
+    let isContributor = false;
+
+    if (isActualAdmin && activeRole === "manager") {
+      isCaseManager = true;
+    } else if (isActualAdmin && activeRole === "staff") {
+      isContributor = true;
+    } else {
+      isCaseManager = assignedRole === 'edit';
+      isContributor = assignedRole === 'view' || (student?.teacherEmails?.some(e => e.toLowerCase() === email));
+    }
 
     // Role Labeling (System Admin takes precedence)
     const roleLabel = isSystemAdmin ? "Admin" : isCaseManager ? "Manager" : "Staff";
@@ -74,6 +87,7 @@ export function usePermissions(student: Student | null) {
 
     return {
       isSystemAdmin,
+      isActualAdmin,
       roleLabel,
       fullRoleTitle,
       canCreateStudent,
@@ -82,5 +96,5 @@ export function usePermissions(student: Student | null) {
       canEditSettings,
       canLogData,
     };
-  }, [student, user, dynamicAdmins, adminsLoading]);
+  }, [student, user, dynamicAdmins, adminsLoading, impersonatedRole]);
 }

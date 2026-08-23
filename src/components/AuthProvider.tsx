@@ -10,6 +10,10 @@ interface AuthContextType {
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
+  impersonatedRole: "admin" | "manager" | "staff" | null;
+  setImpersonatedRole: (role: "admin" | "manager" | "staff" | null) => void;
+  perspectiveEngineEnabled: boolean;
+  setPerspectiveEngineEnabled: (val: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,13 +22,45 @@ const AuthContext = createContext<AuthContextType>({
   error: null,
   signIn: async () => {},
   signOut: async () => {},
-  clearError: () => {}
+  clearError: () => {},
+  impersonatedRole: null,
+  setImpersonatedRole: () => {},
+  perspectiveEngineEnabled: false,
+  setPerspectiveEngineEnabled: () => {}
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [impersonatedRole, setImpersonatedRoleState] = useState<"admin" | "manager" | "staff" | null>(() => {
+    const val = localStorage.getItem("gbt_impersonated_role");
+    if (val === "manager" || val === "staff") return val;
+    return null;
+  });
+  const [perspectiveEngineEnabled, setPerspectiveEngineEnabledState] = useState<boolean>(() => {
+    return localStorage.getItem("gbt_perspective_engine_enabled") === "true";
+  });
+
+  const setImpersonatedRole = (role: "admin" | "manager" | "staff" | null) => {
+    setImpersonatedRoleState(role);
+    if (role && role !== "admin") {
+      localStorage.setItem("gbt_impersonated_role", role);
+    } else {
+      localStorage.removeItem("gbt_impersonated_role");
+    }
+  };
+
+  const setPerspectiveEngineEnabled = (val: boolean) => {
+    setPerspectiveEngineEnabledState(val);
+    if (val) {
+      localStorage.setItem("gbt_perspective_engine_enabled", "true");
+    } else {
+      localStorage.removeItem("gbt_perspective_engine_enabled");
+      setImpersonatedRoleState(null);
+      localStorage.removeItem("gbt_impersonated_role");
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
@@ -81,7 +117,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, signIn, signOut, clearError }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      error, 
+      signIn, 
+      signOut, 
+      clearError, 
+      impersonatedRole, 
+      setImpersonatedRole,
+      perspectiveEngineEnabled,
+      setPerspectiveEngineEnabled
+    }}>
       {children}
     </AuthContext.Provider>
   );

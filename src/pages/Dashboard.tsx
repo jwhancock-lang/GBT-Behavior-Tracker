@@ -24,19 +24,17 @@ import { CollaboratorManager } from "../components/CollaboratorManager";
 
 const DEFAULT_SCHEDULE = [
   "Arrival",
-  "Reading",
+  "Morning Meeting",
+  "ELA",
   "Math",
-  "Specials",
-  "Lunch",
+  "Tiger Time",
   "Recess",
-  "Dismissal"
+  "Lunch",
+  "Specials",
+  "Departure"
 ];
 
-const DEFAULT_BEHAVIORS = [
-  "Follows directions",
-  "Keep hands and feet to self",
-  "Stays on task"
-];
+const DEFAULT_BEHAVIORS: string[] = [];
 
 function StudentCard({ 
   student, 
@@ -626,6 +624,16 @@ export default function Dashboard() {
               <option value="All">All Homerooms</option>
               {uniqueHomerooms.map(h => <option key={h} value={h}>{h}</option>)}
             </select>
+
+            {globalPerms.canCreateStudent && (
+              <Button
+                onClick={openAddForm}
+                className="h-10 px-4 bg-orange-600 hover:bg-orange-700 text-white font-black uppercase text-[10px] tracking-wider rounded-md shrink-0 flex items-center gap-1.5 select-none cursor-pointer group active:scale-95 transition-transform"
+              >
+                <Plus className="h-3.5 w-3.5 group-hover:scale-110 transition-transform" />
+                Add Student
+              </Button>
+            )}
           </div>
         </div>
 
@@ -797,23 +805,65 @@ export default function Dashboard() {
 
             {currentPerms.canEditSettings && (
               <>
+                {/* Mobile editing friendly help banner */}
+                <div className="block md:hidden bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-2.5 text-xs leading-normal font-medium mb-2">
+                  <span className="font-extrabold text-[10px] uppercase tracking-wider block mb-0.5 text-amber-800">📱 Mobile Quick Tip</span>
+                  Editing custom multiline lists can be tedious on phone keyboards! Tap the <strong>preset buttons</strong> below the inputs to quickly compose these behaviors and structures.
+                </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="behaviors">Target Behaviors (one per line)</Label>
+                  <Label htmlFor="behaviors" className="font-semibold text-xs text-slate-700">Target Behaviors (one per line)</Label>
                   <textarea
                     id="behaviors"
-                    className="flex min-h-[80px] w-full rounded-md border border-slate-200 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950"
+                    className="flex min-h-[80px] w-full rounded-md border border-slate-250 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950 font-medium"
                     value={behaviors}
                     onChange={e => setBehaviors(e.target.value)}
                   />
+                  <div className="flex flex-wrap gap-1 mt-1 pb-2">
+                    <span className="text-[9px] text-slate-400 font-black uppercase self-center mr-1">Presets:</span>
+                    {["Keep hands to self", "Follows directions", "Stays on task", "Active participation", "Safe transitions"].map(p => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => {
+                          const current = behaviors.split("\n").map(x => x.trim()).filter(Boolean);
+                          if (!current.includes(p)) {
+                            setBehaviors([...current, p].join("\n"));
+                          }
+                        }}
+                        className="bg-slate-100 hover:bg-orange-50 text-[10px] text-slate-600 hover:text-orange-900 px-2 py-0.5 rounded-md border border-slate-200/60 transition-colors font-bold select-none cursor-pointer"
+                      >
+                        + {p}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="schedule">Schedule / Periods (one per line)</Label>
+                  <Label htmlFor="schedule" className="font-semibold text-xs text-slate-700">Schedule / Periods (one per line)</Label>
                   <textarea
                     id="schedule"
-                    className="flex min-h-[120px] w-full rounded-md border border-slate-200 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950"
+                    className="flex min-h-[120px] w-full rounded-md border border-slate-250 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950 font-medium"
                     value={schedule}
                     onChange={e => setSchedule(e.target.value)}
                   />
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    <span className="text-[9px] text-slate-400 font-black uppercase self-center mr-1">Presets:</span>
+                    {["Arrival", "ELA/Reading", "Math", "Science", "Specials", "Lunch", "Recess", "Dismissal"].map(p => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => {
+                          const current = schedule.split("\n").map(x => x.trim()).filter(Boolean);
+                          if (!current.includes(p)) {
+                            setSchedule([...current, p].join("\n"));
+                          }
+                        }}
+                        className="bg-slate-100 hover:bg-orange-50 text-[10px] text-slate-600 hover:text-orange-900 px-2 py-0.5 rounded-md border border-slate-200/60 transition-colors font-bold select-none cursor-pointer"
+                      >
+                        + {p}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </>
             )}

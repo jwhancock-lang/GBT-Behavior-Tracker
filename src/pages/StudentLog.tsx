@@ -368,12 +368,22 @@ export default function StudentLog() {
   const handleScoreChange = (period: string, behavior: string, score: number) => {
     const fresh = { ...periodData };
     if (!fresh[period]) fresh[period] = { status: "present", scores: {} };
+    
+    let newScore: number | undefined = score;
+    if (fresh[period].scores[behavior] === score) {
+      newScore = undefined;
+    }
+
+    const newScores = { ...fresh[period].scores };
+    if (newScore === undefined) {
+      delete newScores[behavior];
+    } else {
+      newScores[behavior] = newScore;
+    }
+
     fresh[period] = {
       ...fresh[period],
-      scores: {
-        ...fresh[period].scores,
-        [behavior]: score
-      }
+      scores: newScores
     };
     setPeriodData(fresh);
     saveCurrentState(attendance, fresh);
@@ -817,51 +827,53 @@ export default function StudentLog() {
                                 </div>
                               </div>
 
-                              {isExpanded && !isMissed && (
+                              {isExpanded && (
                                 <div className="p-3 md:p-2 bg-slate-50/50 space-y-1">
-                                  <div className="space-y-1 md:px-2">
-                                    {student.behaviors.map((behavior, bIdx) => {
-                                      const currentScore = pData.scores[behavior];
-                                      return (
-                                        <div key={bIdx} className="bg-white md:bg-transparent md:border-0 p-2 md:p-0 md:py-1 rounded-lg border border-slate-100 flex items-center justify-between gap-4">
-                                          <div className="flex-1 min-w-0">
-                                            <p className="text-[10px] md:text-[11px] font-black text-slate-600 uppercase tracking-tight truncate">{behavior}</p>
-                                          </div>
-                                          <div className="flex gap-1.5 shrink-0">
-                                            {[
-                                              { val: 0, icon: Frown, color: "bg-red-500", label: "NO" },
-                                              { val: 1, icon: Smile, color: "bg-emerald-500", label: "YES" }
-                                            ].map(opt => (
+                                  {!isMissed && (
+                                    <div className="space-y-1 md:px-2">
+                                      {student.behaviors.map((behavior, bIdx) => {
+                                        const currentScore = pData.scores[behavior];
+                                        return (
+                                          <div key={bIdx} className="bg-white md:bg-transparent md:border-0 p-2 md:p-0 md:py-1 rounded-lg border border-slate-100 flex items-center justify-between gap-4">
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-[10px] md:text-[11px] font-black text-slate-600 uppercase tracking-tight truncate">{behavior}</p>
+                                            </div>
+                                            <div className="flex gap-1.5 shrink-0">
+                                              {[
+                                                { val: 0, icon: Frown, color: "bg-red-500", label: "NO" },
+                                                { val: 1, icon: Smile, color: "bg-emerald-500", label: "YES" }
+                                              ].map(opt => (
+                                                <button
+                                                  key={opt.val}
+                                                  onClick={() => handleScoreChange(period, behavior, opt.val)}
+                                                  className={cn(
+                                                    "h-11 w-11 md:h-9 md:w-12 rounded-md flex flex-col items-center justify-center transition-all border touch-action-manipulation select-none",
+                                                    currentScore === opt.val 
+                                                      ? cn(opt.color, "text-white border-transparent shadow-sm") 
+                                                      : "bg-slate-50 text-slate-300 border-slate-100 hover:border-slate-200 hover:bg-slate-100"
+                                                  )}
+                                                >
+                                                  <opt.icon className="h-3.5 w-3.5 md:h-3.5 md:w-3.5" />
+                                                  <span className="text-[8px] font-black leading-none mt-0.5">{opt.label}</span>
+                                                </button>
+                                              ))}
                                               <button
-                                                key={opt.val}
-                                                onClick={() => handleScoreChange(period, behavior, opt.val)}
+                                                onClick={() => handleScoreChange(period, behavior, -1)}
                                                 className={cn(
-                                                  "h-11 w-11 md:h-9 md:w-12 rounded-md flex flex-col items-center justify-center transition-all border touch-action-manipulation select-none",
-                                                  currentScore === opt.val 
-                                                    ? cn(opt.color, "text-white border-transparent shadow-sm") 
-                                                    : "bg-slate-50 text-slate-300 border-slate-100 hover:border-slate-200 hover:bg-slate-100"
+                                                  "h-11 w-11 md:h-9 md:w-9 rounded-md flex items-center justify-center transition-all border touch-action-manipulation select-none",
+                                                  currentScore === -1 
+                                                    ? "bg-slate-400 text-white border-transparent" 
+                                                    : "bg-slate-50 text-slate-300 border-slate-100 hover:bg-slate-100"
                                                 )}
                                               >
-                                                <opt.icon className="h-3.5 w-3.5 md:h-3.5 md:w-3.5" />
-                                                <span className="text-[8px] font-black leading-none mt-0.5">{opt.label}</span>
+                                                <MinusCircle className="h-3.5 w-3.5 md:h-3.5 md:w-3.5" />
                                               </button>
-                                            ))}
-                                            <button
-                                              onClick={() => handleScoreChange(period, behavior, -1)}
-                                              className={cn(
-                                                "h-11 w-11 md:h-9 md:w-9 rounded-md flex items-center justify-center transition-all border touch-action-manipulation select-none",
-                                                currentScore === -1 
-                                                  ? "bg-slate-400 text-white border-transparent" 
-                                                  : "bg-slate-50 text-slate-300 border-slate-100 hover:bg-slate-100"
-                                              )}
-                                            >
-                                              <MinusCircle className="h-3.5 w-3.5 md:h-3.5 md:w-3.5" />
-                                            </button>
+                                            </div>
                                           </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
                                   
                                   <div className="mt-1 border-t border-slate-100/50 pt-1 flex flex-col md:px-2">
                                     <div className="flex items-center justify-between">
